@@ -11,13 +11,14 @@ class HomeShell extends StatefulWidget {
   State createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State {
+class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final role = AppStateScope.of(context).role;
+    // Garante que admin comece no histórico, mecânico no checklist
     _index = (role == UserRole.admin) ? 1 : 0;
   }
 

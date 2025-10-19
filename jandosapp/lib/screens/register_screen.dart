@@ -1,74 +1,80 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../providers/app_state.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'home_shell.dart';
-import 'register_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State createState() => _LoginScreenState();
+  State createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscure = true;
   bool _loading = false;
 
+  final database = FirebaseDatabase.instance.ref();
+
   @override
   void dispose() {
+    _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
   }
 
-  /// Função de login corrigida usando AppState otimizado
-  Future<void> _signIn() async {
+  Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _loading = true);
 
+    final name = _nameCtrl.text.trim();
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text.trim();
 
     try {
-      // Login com Firebase Auth
-      final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      // Cria o usuário no Firebase Auth
+      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      final user = userCredential.user!;
-      final app = AppStateScope.of(context);
+      // Salva o usuário no Realtime Database
+      await database.child('users/${userCredential.user!.uid}').set({
+        'name': name,
+        'email': email,
+        'role': 'mechanic', // sempre mechanic ao se cadastrar sozinho
+        'createdAt': ServerValue.timestamp,
+      });
 
-      // Atualiza AppState com dados do Firebase Realtime Database
-      await app.signInWithFirebase(user);
-
-      // Navega para Home
+      // Navega para a tela principal
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeShell()),
       );
+
     } on FirebaseAuthException catch (e) {
       String message = 'Erro desconhecido';
-      if (e.code == 'user-not-found') message = 'Usuário não encontrado';
-      if (e.code == 'wrong-password') message = 'Senha incorreta';
+      if (e.code == 'email-already-in-use') message = 'E-mail já cadastrado';
+      if (e.code == 'invalid-email') message = 'E-mail inválido';
+      if (e.code == 'weak-password') message = 'Senha muito fraca (mínimo 6 caracteres)';
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     } finally {
       setState(() => _loading = false);
     }
   }
 
-  void _goToRegister() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RegisterScreen()));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text('Registrar')),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
@@ -81,8 +87,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Entrar', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+                    const Text('Criar Conta', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 16),
+
+                    TextFormField(
+                      controller: _nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Nome'),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe seu nome' : null,
+                    ),
+                    const SizedBox(height: 12),
+
                     TextFormField(
                       controller: _emailCtrl,
                       decoration: const InputDecoration(labelText: 'E-mail'),
@@ -90,6 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       validator: (v) => (v == null || !v.contains('@')) ? 'E-mail inválido' : null,
                     ),
                     const SizedBox(height: 12),
+
                     TextFormField(
                       controller: _passwordCtrl,
                       decoration: InputDecoration(
@@ -103,23 +118,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       validator: (v) => (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
                     ),
                     const SizedBox(height: 16),
+
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: _loading ? null : _signIn,
-                        child: _loading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('Entrar'),
+                        onPressed: _loading ? null : _register,
+                        child: _loading ? const CircularProgressIndicator() : const Text('Registrar'),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: _goToRegister,
-                      child: const Text('Não tem conta? Cadastre-se'),
                     ),
                   ],
                 ),

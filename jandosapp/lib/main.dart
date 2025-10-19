@@ -6,31 +6,35 @@ import 'screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializa o Firebase com as opções geradas pelo FlutterFire CLI
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const MyApp());
+
+  // Inicializa o AppState
+  final appState = AppState();
+
+  // Executa o app
+  runApp(MyApp(appState: appState));
 }
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+class MyApp extends StatelessWidget {
+  final AppState appState;
 
-  @override
-  State createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  final AppState _state = AppState();
+  const MyApp({super.key, required this.appState});
 
   @override
   Widget build(BuildContext context) {
     return AppStateScope(
-      notifier: _state,
+      notifier: appState, // passa o AppState para todas as telas
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Checklist Oficina',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.redAccent),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color.fromARGB(255, 244, 30, 30),
+          ),
           useMaterial3: true,
           inputDecorationTheme: const InputDecorationTheme(
             border: OutlineInputBorder(),
