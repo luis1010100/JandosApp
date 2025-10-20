@@ -37,22 +37,32 @@ class AppState extends ChangeNotifier {
       _userName = event.snapshot.value?.toString() ?? user.email!.split('@')[0];
       notifyListeners();
     });
-
+    
+  Future<void> loadChecklists() async {
+  final snapshot = await database.child('checklists').get();
+  if (snapshot.exists) {
+    _checklists.clear();
+    for (var child in snapshot.children) {
+      final checklist = Checklist.fromMap(
+        Map<String, dynamic>.from(child.value as Map),
+      );
+      _checklists.add(checklist);
+    }
+    notifyListeners();
+  }
+}
     // Carrega checklists do Firebase
     await loadChecklists();
   }
 
-  Future<void> loadChecklists() async {
-    final snapshot = await database.child('checklists').get();
-    if (snapshot.exists) {
-      _checklists.clear();
-      for (var child in snapshot.children) {
-        final checklist = Checklist.fromMap(Map<String, dynamic>.from(child.value as Map));
-        _checklists.add(checklist);
-      }
-      notifyListeners();
-    }
+Future<void> updChecklist(Checklist oldC, Checklist newC) async {
+  final index = _checklists.indexOf(oldC);
+  if (index != -1) {
+    _checklists[index] = newC;
+    notifyListeners();
+    await database.child('checklists').child(newC.id).set(newC.toMap());
   }
+}
 
   void signOut() {
     _role = null;

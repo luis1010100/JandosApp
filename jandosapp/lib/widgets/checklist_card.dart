@@ -2,10 +2,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/checklist.dart';
+import '../screens/checklist_screen.dart';
 
 class ChecklistCard extends StatelessWidget {
   final Checklist item;
   const ChecklistCard({super.key, required this.item});
+
+  bool _isHttp(String path) => path.startsWith('http://') || path.startsWith('https://');
 
   @override
   Widget build(BuildContext context) {
@@ -16,15 +19,22 @@ class ChecklistCard extends StatelessWidget {
         leading: const Icon(Icons.receipt_long),
         title: Text('${item.nomeCarro} • ${item.modeloCarro} • ${item.corCarro}'),
         subtitle: Text(
-            'Cliente: ${item.nomeCliente}\nPlaca: ${item.placa}\nCriado: ${df.format(item.createdAt)} por ${item.createdBy}'),
+          'Cliente: ${item.nomeCliente}\nPlaca: ${item.placa}\nCriado: ${df.format(item.createdAt)} por ${item.createdBy}',
+        ),
         isThreeLine: true,
-        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-          IconButton(onPressed: () => _mostrarDetalhes(context, item), icon: const Icon(Icons.visibility)),
-          IconButton(
-            onPressed: () => _editarChecklist(context, item),
-            icon: const Icon(Icons.edit, color: Colors.white),
-          ),
-        ]),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              onPressed: () => _mostrarDetalhes(context, item),
+              icon: const Icon(Icons.visibility),
+            ),
+            IconButton(
+              onPressed: () => _editarChecklist(context, item),
+              icon: const Icon(Icons.edit), // cor padrão para boa visibilidade
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -56,40 +66,25 @@ class ChecklistCard extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: item.fotos
-                      .map((p) => Image.file(
-                            File(p.path),
-                            width: 100,
-                            height: 100,
-                            fit: BoxFit.cover,
-                          ))
+                      .map((p) => _isHttp(p.path)
+                          ? Image.network(p.path, width: 100, height: 100, fit: BoxFit.cover)
+                          : Image.file(File(p.path), width: 100, height: 100, fit: BoxFit.cover))
                       .toList(),
                 ),
             ],
           ),
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Fechar')
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
         ],
       ),
     );
   }
 
   void _editarChecklist(BuildContext context, Checklist item) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Editar Checklist'),
-        content: const Text('Funcionalidade de edição não implementada.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Fechar')
-          ),
-        ],
-      ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ChecklistScreen(editing: item)),
     );
   }
 }
