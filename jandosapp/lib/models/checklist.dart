@@ -46,6 +46,7 @@ class Checklist {
         'fotos': fotos.map((p) => p.path).toList(),
         'createdAt': createdAt.toIso8601String(),
         'createdBy': createdBy,
+        // ignore: deprecated_member_use
         'createdByRole': describeEnum(createdByRole),
       };
 
