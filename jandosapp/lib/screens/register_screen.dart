@@ -53,6 +53,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
 
       // Navega para a tela principal
+      // ignore: use_build_context_synchronously
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeShell()),
       );
@@ -63,6 +64,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (e.code == 'invalid-email') message = 'E-mail inválido';
       if (e.code == 'weak-password') message = 'Senha muito fraca (mínimo 6 caracteres)';
 
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );

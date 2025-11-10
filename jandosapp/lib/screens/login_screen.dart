@@ -42,12 +42,14 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       final user = userCredential.user!;
+      // ignore: use_build_context_synchronously
       final app = AppStateScope.of(context);
 
       // Atualiza AppState com dados do Firebase Realtime Database
       await app.signInWithFirebase(user);
 
       // Navega para Home
+      // ignore: use_build_context_synchronously
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeShell()),
       );
@@ -56,6 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (e.code == 'user-not-found') message = 'Usuário não encontrado';
       if (e.code == 'wrong-password') message = 'Senha incorreta';
 
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       setState(() => _loading = false);

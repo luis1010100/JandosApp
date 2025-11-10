@@ -118,6 +118,7 @@ class UserScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
                 decoration: BoxDecoration(
+                  // ignore: deprecated_member_use
                   color: theme.colorScheme.primaryContainer.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(16),
                 ),

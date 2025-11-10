@@ -6,18 +6,11 @@ import 'screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Inicializa o Firebase com as opções geradas pelo FlutterFire CLI
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  // Inicializa o AppState
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   final appState = AppState();
-
-  // Executa o app
   runApp(MyApp(appState: appState));
 }
+
 
 class MyApp extends StatelessWidget {
   final AppState appState;

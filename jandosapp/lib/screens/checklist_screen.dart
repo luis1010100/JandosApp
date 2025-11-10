@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // 🔹 adicionado
 import '../models/checklist.dart';
 import '../models/photo_placeholder.dart';
 import '../models/user_role.dart';
@@ -65,7 +66,8 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     super.dispose();
   }
 
-  bool _isHttp(String path) => path.startsWith('http://') || path.startsWith('https://');
+  bool _isHttp(String path) =>
+      path.startsWith('http://') || path.startsWith('https://');
 
   Future<void> _addPhoto() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -83,10 +85,14 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
     setState(() => _isSaving = true);
     final app = AppStateScope.of(context);
+    final user = FirebaseAuth.instance.currentUser; // 🔹 pega UID atual
 
     try {
       // URLs que já existiam (vieram do Firebase)
-      final existingUrls = _fotos.where((p) => _isHttp(p.path)).map((p) => p.path).toList();
+      final existingUrls = _fotos
+          .where((p) => _isHttp(p.path))
+          .map((p) => p.path)
+          .toList();
 
       // Fotos novas locais (subir para o Storage)
       final localNew = _fotos.where((p) => !_isHttp(p.path)).toList();
@@ -94,7 +100,8 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
       for (final photo in localNew) {
         final file = File(photo.path);
-        final fileName = 'checklist_photos/${DateTime.now().millisecondsSinceEpoch}_${_placaCtrl.text.trim()}.jpg';
+        final fileName =
+            'checklist_photos/${DateTime.now().millisecondsSinceEpoch}_${_placaCtrl.text.trim()}.jpg';
         final ref = FirebaseStorage.instance.ref().child(fileName);
         await ref.putFile(file);
         final url = await ref.getDownloadURL();
@@ -103,19 +110,25 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
       // Se edição: remover do Storage URLs que foram excluídos da lista
       if (_editing != null) {
-        final oldUrls = _editing!.fotos.map((e) => e.path).where(_isHttp).toSet();
+        final oldUrls = _editing!.fotos
+            .map((e) => e.path)
+            .where(_isHttp)
+            .toSet();
         final kept = existingUrls.toSet();
         final toDelete = oldUrls.difference(kept);
         for (final u in toDelete) {
           try {
             await FirebaseStorage.instance.refFromURL(u).delete();
-          } catch (_) {/* ignora falhas de remoção */}
+          } catch (_) {
+            // ignora falhas de remoção
+          }
         }
       }
 
       final allUrls = [...existingUrls, ...uploadedUrls];
       final now = DateTime.now();
 
+      // 🔹 Cria novo checklist com UID do usuário logado
       final newData = Checklist(
         id: _editing?.id ?? now.millisecondsSinceEpoch.toString(),
         nomeCliente: _nomeClienteCtrl.text.trim(),
@@ -129,23 +142,29 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         fotos: allUrls.map((p) => PhotoPlaceholder(p)).toList(),
         createdAt: _editing?.createdAt ?? now,
         createdBy: _editing?.createdBy ?? app.userName,
-        createdByRole: _editing?.createdByRole ?? (app.role ?? UserRole.mechanic),
+        createdByRole:
+            _editing?.createdByRole ?? (app.role ?? UserRole.mechanic),
+        createdByUid: _editing?.createdByUid ?? user?.uid, // 🔹 salva UID
       );
 
       if (_editing == null) {
         await app.addChecklist(newData);
       } else {
-        await app.updChecklist(_editing!, newData);
+        await app.updateChecklist(_editing!, newData);
       }
 
       if (!mounted) return;
       await showDialog(
         context: context,
         builder: (_) => AlertDialog(
-          title: Text(_editing == null ? 'Checklist salvo!' : 'Checklist atualizado!'),
-          content: Text(_editing == null
-              ? 'Os dados foram registrados com sucesso.'
-              : 'As alterações foram salvas e sincronizadas.'),
+          title: Text(
+            _editing == null ? 'Checklist salvo!' : 'Checklist atualizado!',
+          ),
+          content: Text(
+            _editing == null
+                ? 'Os dados foram registrados com sucesso.'
+                : 'As alterações foram salvas e sincronizadas.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -156,12 +175,16 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       );
 
       if (_editing == null) _clearForm();
-      if (Navigator.canPop(context)) Navigator.pop(context); // volta da tela de edição
+      // ignore: use_build_context_synchronously
+      if (Navigator.canPop(context)) {
+        // ignore: use_build_context_synchronously
+        Navigator.pop(context); // volta da tela de edição
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao salvar: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -199,10 +222,16 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
             children: [
               _tf(_nomeClienteCtrl, 'Nome do Cliente*'),
               _tf(_nomeCarroCtrl, 'Nome do Carro*'),
-              _tf(_placaCtrl, 'Placa*', validator: (v) {
-                if (v == null || v.trim().length != 7) return 'Placa inválida';
-                return null;
-              }),
+              _tf(
+                _placaCtrl,
+                'Placa*',
+                validator: (v) {
+                  if (v == null || v.trim().length != 7) {
+                    return 'Placa inválida';
+                  }
+                  return null;
+                },
+              ),
               _tf(_modeloCtrl, 'Modelo*'),
               _tf(_marcaCtrl, 'Marca*'),
               _tf(
@@ -226,7 +255,10 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                 decoration: const InputDecoration(labelText: 'Observações'),
               ),
               const SizedBox(height: 16),
-              const Text('Fotos', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+              const Text(
+                'Fotos',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -252,7 +284,11 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                             child: Container(
                               color: Colors.black54,
                               padding: const EdgeInsets.all(4),
-                              child: const Icon(Icons.close, color: Colors.white, size: 16),
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 16,
+                              ),
                             ),
                           ),
                         ),
@@ -273,9 +309,13 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                     child: FilledButton.icon(
                       onPressed: _isSaving ? null : _submit,
                       icon: const Icon(Icons.save),
-                      label: Text(_isSaving
-                          ? 'Salvando...'
-                          : (isEditing ? 'Salvar Alterações' : 'Salvar Checklist')),
+                      label: Text(
+                        _isSaving
+                            ? 'Salvando...'
+                            : (isEditing
+                                ? 'Salvar Alterações'
+                                : 'Salvar Checklist'),
+                      ),
                     ),
                   ),
                   if (!isEditing) ...[
