@@ -24,6 +24,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final _df = DateFormat('dd/MM/yyyy HH:mm');
   String _search = '';
 
+  // --- 🎨 NOSSAS CONSTANTES DE DESIGN (baseadas no seu briefing) ---
+  static const Color _backgroundColor = Color(0xFFF6F7F9);
+  static const Color _cardColor = Colors.white;
+  static const Color _primaryColor = Color(0xFFFF6600); // Laranja (para consistência)
+  static const Color _textColor = Color(0xFF1A1A1A);
+  static const Color _secondaryTextColor = Color(0xFF6B7280);
+  // --- FIM DAS CONSTANTES DE DESIGN ---
+
   @override
   void initState() {
     super.initState();
@@ -63,137 +71,93 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget build(BuildContext context) {
     final app = AppStateScope.of(context);
     final isAdmin = app.role == UserRole.admin;
-    final checklists = _filter(app.checklists);
+    // 🔹 Filtra a lista baseada no role ANTES de passar para o filtro de busca
+    final baseChecklists = isAdmin
+        ? app.checklists
+        // 🔹 Filtro para mecânico: mostra apenas os dele
+        : app.checklists.where((c) => c.createdByUid == app.userUid).toList(); 
+        
+    final checklists = _filter(baseChecklists);
 
     return Scaffold(
+      // 1. ✅ Cor de fundo e AppBar
+      backgroundColor: _backgroundColor,
       appBar: AppBar(
-        title: Text('Histórico de Checklists ${isAdmin ? "(Admin)" : ""}'),
+        title: Text(
+          'Histórico de Checklists',
+          style: TextStyle(
+            color: _textColor,
+            fontWeight: FontWeight.bold, // semibold
+            fontSize: 22,
+          ),
+        ),
+        backgroundColor: _cardColor,
+        foregroundColor: _textColor,
+        elevation: 1.0,
       ),
       body: Column(
         children: [
-          // 🔍 Campo de pesquisa
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                hintText: 'Pesquisar por cliente, placa, carro...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _search.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          setState(() => _search = '');
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
+          // 2. ✅ Campo de pesquisa estilizado
+          _buildSearchBar(),
 
-          // 🔄 Lista em tempo real
+          // 3. ✅ Layout Responsivo (Grid/Lista)
           Expanded(
             child: checklists.isEmpty
-                ? const Center(child: Text('Nenhum checklist encontrado.'))
+                ? Center(
+                    child: Text(
+                    _search.isEmpty
+                        ? 'Nenhum checklist encontrado.'
+                        : 'Nenhum resultado para "$_search"',
+                    style: TextStyle(color: _secondaryTextColor),
+                  ))
                 : RefreshIndicator(
                     onRefresh: () async {
-                      // nada a fazer: já atualiza automaticamente
+                      // A lista já atualiza via Stream,
+                      // mas manter isso é bom para o usuário
                     },
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      itemCount: checklists.length,
-                      itemBuilder: (context, index) {
-                        final c = checklists[index];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: ListTile(
-                            leading: const Icon(Icons.receipt_long),
-                            title: Text('${c.nomeCliente} — ${c.placa}'),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Carro: ${c.nomeCarro} (${c.modeloCarro})'),
-                                Text('Marca/Cor: ${c.marcaCarro} / ${c.corCarro}'),
-                                Text('Ano: ${c.anoCarro}'),
-                                Text(
-                                  'Observações: ${c.observacoes.isEmpty ? "—" : c.observacoes}',
-                                ),
-                                Text(
-                                  'Criado por: ${c.createdBy} (${c.createdByRole.name})',
-                                ),
-                                Text('Data: ${_df.format(c.createdAt)}'),
-                              ],
-                            ),
-                            isThreeLine: true,
+                    // 4. ✅ LayoutBuilder para responsividade
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        // Define o breakpoint
+                        final bool isWideScreen = constraints.maxWidth > 600;
 
-                            // 🔹 Ações (ver / editar / excluir)
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  tooltip: 'Ver detalhes',
-                                  icon: const Icon(Icons.visibility),
-                                  onPressed: () => _mostrarDetalhes(context, c),
-                                ),
-                                if (isAdmin) ...[
-                                  IconButton(
-                                    tooltip: 'Editar',
-                                    icon: const Icon(Icons.edit),
-                                    onPressed: () async {
-                                      await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              ChecklistScreen(editing: c),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  IconButton(
-                                    tooltip: 'Excluir',
-                                    icon: const Icon(
-                                      Icons.delete,
-                                      color: Colors.red,
-                                    ),
-                                    onPressed: () async {
-                                      final confirm = await showDialog<bool>(
-                                        context: context,
-                                        builder: (_) => AlertDialog(
-                                          title: const Text('Confirmar exclusão'),
-                                          content: const Text(
-                                            'Deseja realmente excluir este checklist?',
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(context, false),
-                                              child: const Text('Cancelar'),
-                                            ),
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(context, true),
-                                              child: const Text('Excluir'),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                      if (confirm == true) {
-                                        app.removeChecklist(c);
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ],
+                        if (isWideScreen) {
+                          // --- MODO TABLET (GRID) ---
+                          return GridView.builder(
+                            padding: const EdgeInsets.all(16),
+                            gridDelegate:
+                                const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 480, // Limite de 480dp
+                              mainAxisSpacing: 16,
+                              crossAxisSpacing: 16,
+                              childAspectRatio: 1.8, // Ajuste para altura
                             ),
-                          ),
-                        );
+                            itemCount: checklists.length,
+                            itemBuilder: (context, index) {
+                              return _buildChecklistCard(
+                                checklists[index],
+                                app,
+                                isAdmin,
+                              );
+                            },
+                          );
+                        } else {
+                          // --- MODO CELULAR (LISTA) ---
+                          return ListView.builder(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            itemCount: checklists.length,
+                            itemBuilder: (context, index) {
+                              return _buildChecklistCard(
+                                checklists[index],
+                                app,
+                                isAdmin,
+                              );
+                            },
+                          );
+                        }
                       },
                     ),
                   ),
@@ -203,69 +167,349 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  // === 📄 Modal de detalhes e PDF ===
-  void _mostrarDetalhes(BuildContext context, Checklist item) {
-    final df = _df;
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Detalhes do Checklist'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Placa: ${item.placa}'),
-              Text('Cliente: ${item.nomeCliente}'),
-              Text('Carro: ${item.nomeCarro}'),
-              Text('Modelo: ${item.modeloCarro}'),
-              Text('Marca: ${item.marcaCarro}'),
-              Text('Ano: ${item.anoCarro}'),
-              Text('Cor: ${item.corCarro}'),
-              const SizedBox(height: 12),
-              const Text(
-                'Observações:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(item.observacoes.isEmpty ? '—' : item.observacoes),
-              const SizedBox(height: 12),
-              const Text(
-                'Fotos:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              if (item.fotos.isEmpty)
-                const Text('Nenhuma foto.')
-              else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: item.fotos.map((p) => _fotoWidget(p.path)).toList(),
-                ),
-              const SizedBox(height: 12),
-              Text(
-                'Criado por: ${item.createdBy} (${item.createdByRole.name})',
-              ),
-              Text('Data: ${df.format(item.createdAt)}'),
-            ],
+  /// 2. ✅ Helper do Campo de pesquisa estilizado
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: TextFormField(
+        controller: _searchCtrl,
+        decoration: InputDecoration(
+          hintText: 'Buscar por cliente, placa ou carro...',
+          hintStyle: TextStyle(color: _secondaryTextColor),
+          prefixIcon: Icon(Icons.search, color: _secondaryTextColor),
+          suffixIcon: _search.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.clear, color: _secondaryTextColor),
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    // setState é chamado pelo listener
+                  },
+                )
+              : null,
+          filled: true,
+          fillColor: _cardColor,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none, // Sem borda, design "flutuante"
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _exportChecklistAsPdf(context, item);
-            },
-            child: const Text('Exportar PDF'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fechar'),
+      ),
+    );
+  }
+
+  /// 5. ✅ O NOVO CARD REATORADO
+  Widget _buildChecklistCard(Checklist c, AppState app, bool isAdmin) {
+    return Card(
+      color: _cardColor,
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.only(bottom: 12), // Apenas para ListView
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- Bloco 1: Título e Placa ---
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    c.nomeCliente,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold, // semibold
+                      color: _textColor,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // ✅ Chip para Placa
+                Chip(
+                  label: Text(
+                    c.placa.toUpperCase(),
+                    style: TextStyle(
+                      color: _primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  backgroundColor: _primaryColor.withOpacity(0.1),
+                  padding: EdgeInsets.zero,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // --- Bloco 2: Informações ---
+            _buildInfoRow(
+              Icons.directions_car_outlined,
+              '${c.marcaCarro} ${c.modeloCarro} (${c.corCarro})',
+            ),
+            _buildInfoRow(
+              Icons.calendar_today_outlined,
+              'Ano: ${c.anoCarro}',
+            ),
+            // ✅ Observações com ícone
+            _buildInfoRow(
+              Icons.notes_outlined,
+              c.observacoes.isEmpty ? "Nenhuma observação" : c.observacoes,
+              maxLines: 2,
+            ),
+
+            const Divider(height: 24),
+
+            // --- Bloco 3: Metadados e Ações ---
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // ✅ Metadados (Criado por, Data)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Por: ${c.createdBy}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _secondaryTextColor,
+                      ),
+                    ),
+                    Text(
+                      _df.format(c.createdAt),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _secondaryTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+                // ✅ Ações (com Tooltip e movidas para baixo)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Tooltip(
+                      message: 'Ver detalhes',
+                      child: IconButton(
+                        icon: Icon(Icons.visibility_outlined,
+                            color: _secondaryTextColor),
+                        onPressed: () => _mostrarDetalhes(context, c),
+                      ),
+                    ),
+                    if (isAdmin) ...[
+                      Tooltip(
+                        message: 'Editar',
+                        child: IconButton(
+                          icon: Icon(Icons.edit_outlined,
+                              color: _secondaryTextColor),
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChecklistScreen(editing: c),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      Tooltip(
+                        message: 'Excluir',
+                        child: IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: Colors.redAccent),
+                          onPressed: () => _confirmDelete(context, app, c),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// ✅ Helper para linhas de informação (Item 2)
+  Widget _buildInfoRow(IconData icon, String text, {int maxLines = 1}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: _secondaryTextColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 14, color: _textColor),
+              maxLines: maxLines,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
     );
   }
 
+  /// ✅ Helper para o diálogo de exclusão (limpando o build)
+  Future<void> _confirmDelete(BuildContext context, AppState app, Checklist c) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Confirmar exclusão'),
+        content: const Text('Deseja realmente excluir este checklist?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar', style: TextStyle(color: _secondaryTextColor)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      try {
+        await app.removeChecklist(c);
+        if (!mounted) return;
+        // ✅ Feedback com SnackBar (Item 6)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Checklist excluído com sucesso.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao excluir: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // === 📄 Modal de detalhes e PDF (Refatorado) ===
+  void _mostrarDetalhes(BuildContext context, Checklist item) {
+    final df = _df;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        // ✅ Estilo do Modal
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          'Detalhes do Checklist',
+          style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ✅ Usando o helper de InfoRow para o modal
+              _buildModalInfoRow('Placa', item.placa.toUpperCase()),
+              _buildModalInfoRow('Cliente', item.nomeCliente),
+              _buildModalInfoRow('Carro', item.nomeCarro),
+              _buildModalInfoRow('Modelo', item.modeloCarro),
+              _buildModalInfoRow('Marca', item.marcaCarro),
+              _buildModalInfoRow('Ano', item.anoCarro.toString()),
+              _buildModalInfoRow('Cor', item.corCarro),
+              const Divider(height: 24),
+              _buildModalInfoRow(
+                  'Observações', item.observacoes.isEmpty ? '—' : item.observacoes),
+              const Divider(height: 24),
+              _buildModalInfoRow('Criado por',
+                  '${item.createdBy} (${item.createdByRole.name})'),
+              _buildModalInfoRow('Data', df.format(item.createdAt)),
+              const SizedBox(height: 16),
+              
+              const Text(
+                'FOTOS:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: _textColor,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (item.fotos.isEmpty)
+                const Text('Nenhuma foto.',
+                    style: TextStyle(color: _secondaryTextColor))
+              else
+                // ✅ Lista de fotos horizontal
+                SizedBox(
+                  height: 100,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: item.fotos.length,
+                    itemBuilder: (ctx, i) => Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: _fotoWidget(item.fotos[i].path),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          // ✅ Botões do Modal estilizados
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fechar', style: TextStyle(color: _secondaryTextColor)),
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.picture_as_pdf, size: 18),
+            label: const Text('Exportar PDF'),
+            style: FilledButton.styleFrom(
+              backgroundColor: _primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(context);
+              await _exportChecklistAsPdf(context, item);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ✅ Helper para as linhas de info do Modal
+  Widget _buildModalInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              color: _secondaryTextColor,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(color: _textColor, fontSize: 16),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- ⚠️ Lógica de PDF (Não alterada, funcionalidade mantida) ---
   Future<void> _exportChecklistAsPdf(
     BuildContext context,
     Checklist item,
@@ -296,10 +540,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ),
             ),
             pw.SizedBox(height: 6),
-            pw.Container(height: 2, color: PdfColor.fromInt(0x00CD193C)),
+            // ✅ Cor do PDF alterada para o laranja
+            pw.Container(height: 2, color: PdfColor.fromHex(_primaryColor.value.toRadixString(16))),
             pw.SizedBox(height: 12),
-            pw.Text('Emitido para: $email', style: const pw.TextStyle(fontSize: 10)),
-            pw.Text('Gerado em: $now', style: const pw.TextStyle(fontSize: 10)),
+            pw.Text('Emitido para: $email',
+                style: const pw.TextStyle(fontSize: 10)),
+            pw.Text('Gerado em: $now',
+                style: const pw.TextStyle(fontSize: 10)),
             pw.SizedBox(height: 20),
             pw.Container(
               decoration: pw.BoxDecoration(
@@ -321,13 +568,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   _pdfRow('Ano', '${item.anoCarro}'),
                   _pdfRow('Cor', item.corCarro),
                   _pdfRow('Placa', item.placa),
-                  _pdfRow('Criado por', '${item.createdBy} (${item.createdByRole.name})'),
+                  _pdfRow(
+                      'Criado por', '${item.createdBy} (${item.createdByRole.name})'),
                   _pdfRow('Data de Criação', _df.format(item.createdAt)),
                 ],
               ),
             ),
             pw.SizedBox(height: 20),
-            pw.Text('Observações:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+            pw.Text('Observações:',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
             pw.Container(
               width: double.infinity,
               padding: const pw.EdgeInsets.all(8),
@@ -363,7 +612,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
       children: [
         pw.Padding(
           padding: const pw.EdgeInsets.symmetric(vertical: 3),
-          child: pw.Text('$label:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          child: pw.Text('$label:',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
         ),
         pw.Padding(
           padding: const pw.EdgeInsets.symmetric(vertical: 3),
