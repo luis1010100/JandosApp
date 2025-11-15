@@ -75,8 +75,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final baseChecklists = isAdmin
         ? app.checklists
         // 🔹 Filtro para mecânico: mostra apenas os dele
-        : app.checklists.where((c) => c.createdByUid == app.userUid).toList(); 
-        
+        : app.checklists.where((c) => c.createdByUid == app.userUid).toList();
+
     final checklists = _filter(baseChecklists);
 
     return Scaffold(
@@ -199,11 +199,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   /// 5. ✅ O NOVO CARD REATORADO
   Widget _buildChecklistCard(Checklist c, AppState app, bool isAdmin) {
-    return Card(
-      color: _cardColor,
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    // 🔹 MUDANÇA: Substituído Card por Container para sombra customizada
+    return Container(
       margin: const EdgeInsets.only(bottom: 12), // Apenas para ListView
+      decoration: BoxDecoration( // 🔹 MUDANÇA: Sombra mais suave
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06), // Sombra mais suave
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -251,11 +260,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Icons.calendar_today_outlined,
               'Ano: ${c.anoCarro}',
             ),
-            // ✅ Observações com ícone
+            // 🔹 MUDANÇA: Observações com maxLines: 1 para card mais limpo
             _buildInfoRow(
               Icons.notes_outlined,
               c.observacoes.isEmpty ? "Nenhuma observação" : c.observacoes,
-              maxLines: 2,
+              maxLines: 1, // MUDADO DE 2 PARA 1
             ),
 
             const Divider(height: 24),
@@ -335,7 +344,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   /// ✅ Helper para linhas de informação (Item 2)
   Widget _buildInfoRow(IconData icon, String text, {int maxLines = 1}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0),
+      // 🔹 MUDANÇA: Mais espaçamento vertical
+      padding: const EdgeInsets.only(bottom: 8.0), // MUDADO DE 6.0 PARA 8.0
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -408,57 +418,95 @@ class _HistoryScreenState extends State<HistoryScreen> {
           'Detalhes do Checklist',
           style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold),
         ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ✅ Usando o helper de InfoRow para o modal
-              _buildModalInfoRow('Placa', item.placa.toUpperCase()),
-              _buildModalInfoRow('Cliente', item.nomeCliente),
-              _buildModalInfoRow('Carro', item.nomeCarro),
-              _buildModalInfoRow('Modelo', item.modeloCarro),
-              _buildModalInfoRow('Marca', item.marcaCarro),
-              _buildModalInfoRow('Ano', item.anoCarro.toString()),
-              _buildModalInfoRow('Cor', item.corCarro),
-              const Divider(height: 24),
-              _buildModalInfoRow(
-                  'Observações', item.observacoes.isEmpty ? '—' : item.observacoes),
-              const Divider(height: 24),
-              _buildModalInfoRow('Criado por',
-                  '${item.createdBy} (${item.createdByRole.name})'),
-              _buildModalInfoRow('Data', df.format(item.createdAt)),
-              const SizedBox(height: 16),
-              
-              const Text(
-                'FOTOS:',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: _textColor,
-                  fontSize: 14,
+        
+        // 🔹 MUDANÇA: Layout do modal refeito para 2 colunas
+        content: SizedBox( // Dando uma largura máxima para o modal
+          width: 500, // Bom para responsividade em tablet
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // --- Bloco 1: Cliente e Veículo (em colunas) ---
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildModalInfoRow('Cliente', item.nomeCliente)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildModalInfoRow('Placa', item.placa.toUpperCase())),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 8),
-              if (item.fotos.isEmpty)
-                const Text('Nenhuma foto.',
-                    style: TextStyle(color: _secondaryTextColor))
-              else
-                // ✅ Lista de fotos horizontal
-                SizedBox(
-                  height: 100,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: item.fotos.length,
-                    itemBuilder: (ctx, i) => Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: _fotoWidget(item.fotos[i].path),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildModalInfoRow('Carro', item.nomeCarro)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildModalInfoRow('Ano', item.anoCarro.toString())),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildModalInfoRow('Marca', item.marcaCarro)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildModalInfoRow('Modelo', item.modeloCarro)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _buildModalInfoRow('Cor', item.corCarro), // Cor sozinha
+
+                const Divider(height: 24),
+                
+                // --- Bloco 2: Observações ---
+                _buildModalInfoRow(
+                    'Observações', item.observacoes.isEmpty ? '—' : item.observacoes),
+                
+                const Divider(height: 24),
+                
+                // --- Bloco 3: Metadados ---
+                Row(
+                   crossAxisAlignment: CrossAxisAlignment.start,
+                   children: [
+                     Expanded(child: _buildModalInfoRow('Criado por', '${item.createdBy} (${item.createdByRole.name})')),
+                     const SizedBox(width: 16),
+                     Expanded(child: _buildModalInfoRow('Data', df.format(item.createdAt))),
+                   ],
+                ),
+                const SizedBox(height: 16),
+                
+                // --- Bloco 4: Fotos ---
+                const Text(
+                  'FOTOS:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: _textColor,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (item.fotos.isEmpty)
+                  const Text('Nenhuma foto.',
+                      style: TextStyle(color: _secondaryTextColor))
+                else
+                  // ✅ Lista de fotos horizontal
+                  SizedBox(
+                    height: 100,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: item.fotos.length,
+                      itemBuilder: (ctx, i) => Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: _fotoWidget(item.fotos[i].path),
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [
@@ -487,7 +535,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   /// ✅ Helper para as linhas de info do Modal
   Widget _buildModalInfoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      // 🔹 MUDANÇA: Mais espaçamento vertical no modal
+      padding: const EdgeInsets.symmetric(vertical: 6.0), // MUDADO DE 4.0 PARA 6.0
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -541,7 +590,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
             pw.SizedBox(height: 6),
             // ✅ Cor do PDF alterada para o laranja
-            pw.Container(height: 2, color: PdfColor.fromHex(_primaryColor.value.toRadixString(16))),
+            pw.Container(
+                height: 2,
+                color: PdfColor.fromHex(_primaryColor.value.toRadixString(16))),
             pw.SizedBox(height: 12),
             pw.Text('Emitido para: $email',
                 style: const pw.TextStyle(fontSize: 10)),
@@ -568,8 +619,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   _pdfRow('Ano', '${item.anoCarro}'),
                   _pdfRow('Cor', item.corCarro),
                   _pdfRow('Placa', item.placa),
-                  _pdfRow(
-                      'Criado por', '${item.createdBy} (${item.createdByRole.name})'),
+                  _pdfRow('Criado por',
+                      '${item.createdBy} (${item.createdByRole.name})'),
                   _pdfRow('Data de Criação', _df.format(item.createdAt)),
                 ],
               ),
