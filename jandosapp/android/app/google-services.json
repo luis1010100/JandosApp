@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1068002679557",
+    "firebase_url": "https://jandosapp-default-rtdb.firebaseio.com",
+    "project_id": "jandosapp",
+    "storage_bucket": "jandosapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1068002679557:android:1a72d3acfc43a266e8f56c",
+        "android_client_info": {
+          "package_name": "com.example.jandosapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCkdjSuz1p6lTCPcEgwq3nfgKwHRK1wpD4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
