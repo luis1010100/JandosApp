@@ -143,100 +143,115 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     setState(() => _fotos.remove(p));
   }
 
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate() || _isSaving) return;
+Future<void> _submit() async {
+  if (!_formKey.currentState!.validate() || _isSaving) return;
 
-    setState(() => _isSaving = true);
-    final app = AppStateScope.of(context);
-    final user = FirebaseAuth.instance.currentUser;
+  setState(() => _isSaving = true);
+  final app = AppStateScope.of(context);
+  final user = FirebaseAuth.instance.currentUser;
 
-    try {
-      final existingUrls = _fotos
-          .where((p) => _isHttp(p.path))
-          .map((p) => p.path)
-          .toList();
+  try {
+    // ====== GERAR ID DO CHECKLIST ANTES DE TUDO ======
+    final now = DateTime.now();
+    final checklistId = _editing?.id ?? now.millisecondsSinceEpoch.toString();
 
-      final localNew = _fotos.where((p) => !_isHttp(p.path)).toList();
-      final uploadedUrls = <String>[];
+    // ====== FOTOS EXISTENTES (já são URLs) ======
+    final existingUrls = _fotos
+        .where((p) => _isHttp(p.path))
+        .map((p) => p.path)
+        .toList();
 
-      for (final photo in localNew) {
-        final file = File(photo.path);
-        final fileName =
-            'checklist_photos/${DateTime.now().millisecondsSinceEpoch}_${_placaCtrl.text.trim()}.jpg';
+    // ====== FOTOS NOVAS LOCAIS ======
+    final localNew = _fotos.where((p) => !_isHttp(p.path)).toList();
+    final uploadedUrls = <String>[];
 
-        final ref = FirebaseStorage.instance.ref().child(fileName);
-        await ref.putFile(file);
-        final url = await ref.getDownloadURL();
-        uploadedUrls.add(url);
-      }
+    for (final photo in localNew) {
+      final file = File(photo.path);
 
-      final now = DateTime.now();
+      // nome 100% único
+      final uniqueId = DateTime.now().microsecondsSinceEpoch.toString();
 
-      final newData = Checklist(
-        id: _editing?.id ?? now.millisecondsSinceEpoch.toString(),
-        nomeCliente: _nomeClienteCtrl.text.trim(),
-        nomeCarro: _nomeCarroCtrl.text.trim(),
-        placa: _placaCtrl.text.trim().toUpperCase(),
-        modeloCarro: _modeloCtrl.text.trim(),
-        marcaCarro: _marcaCtrl.text.trim(),
-        anoCarro: int.tryParse(_anoCtrl.text.trim()) ?? now.year,
-        corCarro: _corCtrl.text.trim(),
-        observacoes: _observacoesCtrl.text.trim(),
-        fotos: [
-          ...existingUrls,
-          ...uploadedUrls,
-        ].map((p) => PhotoPlaceholder(p)).toList(),
-        createdAt: _editing?.createdAt ?? now,
-        createdBy: _editing?.createdBy ?? app.userName,
-        createdByRole:
-            _editing?.createdByRole ?? (app.role ?? UserRole.mechanic),
-        createdByUid: _editing?.createdByUid ?? user?.uid,
-      );
+      // placa limpa
+      final cleanPlaca = _placaCtrl.text.trim().replaceAll(RegExp(r'\s+'), '');
 
-      if (_editing == null) {
-        await app.addChecklist(newData);
-      } else {
-        await app.updateChecklist(_editing!, newData);
-      }
+      // 🔥 path seguro (uma pasta por checklist)
+      final filePath =
+          'checklist_photos/$checklistId/${uniqueId}_$cleanPlaca.jpg';
 
-      if (!mounted) return;
+      final ref = FirebaseStorage.instance.ref().child(filePath);
 
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Text(
-            _editing == null ? 'Checklist salvo!' : 'Checklist atualizado!',
-            style: const TextStyle(color: _textColor),
+      await ref.putFile(file); // upload da imagem
+      final url = await ref.getDownloadURL(); // agora SEM ERRO
+
+      uploadedUrls.add(url);
+    }
+
+    // ====== CRIA OBJETO FINAL DO CHECKLIST ======
+    final newData = Checklist(
+      id: checklistId,
+      nomeCliente: _nomeClienteCtrl.text.trim(),
+      nomeCarro: _nomeCarroCtrl.text.trim(),
+      placa: _placaCtrl.text.trim().toUpperCase(),
+      modeloCarro: _modeloCtrl.text.trim(),
+      marcaCarro: _marcaCtrl.text.trim(),
+      anoCarro: int.tryParse(_anoCtrl.text) ?? now.year,
+      corCarro: _corCtrl.text.trim(),
+      observacoes: _observacoesCtrl.text.trim(),
+      fotos: [
+        ...existingUrls,
+        ...uploadedUrls,
+      ].map((p) => PhotoPlaceholder(p)).toList(),
+      createdAt: _editing?.createdAt ?? now,
+      createdBy: _editing?.createdBy ?? app.userName,
+      createdByRole: _editing?.createdByRole ?? (app.role ?? UserRole.mechanic),
+      createdByUid: _editing?.createdByUid ?? user?.uid,
+    );
+
+    // ====== SALVAR ======
+    if (_editing == null) {
+      await app.addChecklist(newData);
+    } else {
+      await app.updateChecklist(_editing!, newData);
+    }
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(
+          _editing == null ? 'Checklist salvo!' : 'Checklist atualizado!',
+          style: const TextStyle(color: _textColor),
+        ),
+        content: Text(
+          _editing == null
+              ? 'Os dados foram registrados com sucesso.'
+              : 'As alterações foram salvas.',
+          style: const TextStyle(color: _secondaryTextColor),
+        ),
+        actions: [
+          TextButton(
+            child: const Text('OK', style: TextStyle(color: _primaryColor)),
+            onPressed: () => Navigator.pop(context),
           ),
-          content: Text(
-            _editing == null
-                ? 'Os dados foram registrados com sucesso.'
-                : 'As alterações foram salvas.',
-            style: const TextStyle(color: _secondaryTextColor),
-          ),
-          actions: [
-            TextButton(
-              child: const Text('OK', style: TextStyle(color: _primaryColor)),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
+        ],
+      ),
+    );
+
+    if (Navigator.canPop(context)) Navigator.pop(context);
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao salvar: $e'),
+          backgroundColor: _errorColor,
         ),
       );
-
-      if (Navigator.canPop(context)) Navigator.pop(context);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao salvar: $e'),
-            backgroundColor: _errorColor,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
+  } finally {
+    if (mounted) setState(() => _isSaving = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {
