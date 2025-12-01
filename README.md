@@ -2,7 +2,7 @@ JandosApp – Checklist de Mecânica
 
 Aplicativo desenvolvido como projeto acadêmico para auxiliar oficinas mecânicas no registro, organização e acompanhamento de checklists de veículos. O app permite cadastrar veículos, adicionar checklists, salvar fotos e gerar registros estruturados, facilitando processos internos e aumentando a confiabilidade das informações coletadas.
 
-Alunos: Luis Felipe, Gabriel Jandosa, Gabriel Viscardi, Leonardo Martinho, Enzo Souza
+**Alunos: Luis Felipe, Gabriel Jandosa, Gabriel Viscardi, Leonardo Martinho, Enzo Souza**
 
 🚗 Sobre o Projeto
 
